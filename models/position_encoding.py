@@ -50,30 +50,30 @@ class PositionEmbeddingSine(nn.Module):
 
 class PositionEmbeddingLearned(nn.Module):
     """
-    Absolute pos embedding, learned.
+     learned position encoding
     """
     def __init__(self, num_pos_feats=256):
         super().__init__()
-        self.row_embed = nn.Embedding(50, num_pos_feats)
-        self.col_embed = nn.Embedding(50, num_pos_feats)
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        nn.init.uniform_(self.row_embed.weight)
-        nn.init.uniform_(self.col_embed.weight)
+        self.num_pos_feats = num_pos_feats
 
     def forward(self, tensor_list: NestedTensor):
         x = tensor_list.tensors
         h, w = x.shape[-2:]
-        i = torch.arange(w, device=x.device)
-        j = torch.arange(h, device=x.device)
-        x_emb = self.col_embed(i)
-        y_emb = self.row_embed(j)
+        col_embed = nn.Embedding(max(h, w), self.num_pos_feats, device=x.device)
+        row_embed = nn.Embedding(max(h, w), self.num_pos_feats, device=x.device)
+        nn.init.normal_(col_embed.weight, mean=0.5, std=0.25)
+        nn.init.normal_(row_embed.weight, mean=0.5, std=0.25)
+        input_x = torch.arange(w, device=x.device)
+        input_y = torch.arange(h, device=x.device)
+        x_emb = col_embed(input_x)
+        y_emb = row_embed(input_y)
+        # print(x_emb.shape, y_emb.shape)
         pos = torch.cat([
             x_emb.unsqueeze(0).repeat(h, 1, 1),
             y_emb.unsqueeze(1).repeat(1, w, 1),
         ], dim=-1).permute(2, 0, 1).unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
         return pos
+
 
 
 def build_position_encoding(args):
